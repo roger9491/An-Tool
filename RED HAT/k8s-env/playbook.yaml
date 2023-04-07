@@ -1,0 +1,83 @@
+# ansible-playbook -i inventory playbook.yaml
+
+- name: Ansible k8s
+  remote_user: ansible
+  tasks:
+    - name: 開啟控制平面必要端口
+      hosts: master
+      firewalld:
+        port: "{{item}}"
+        permanent: yes
+        state: enabled
+        immediate: yes
+        zone: public
+      loop:
+        - 6443/tcp
+        - 2379-2380/tcp
+        - 10250/tcp
+        - 10259/tcp
+        - 10257/tcp
+    - name: 開啟工作節點必要端口
+      hosts: master
+      firewalld:
+        port: "{{item}}"
+        permanent: yes
+        state: enabled
+        immediate: yes
+        zone: public
+      loop:
+        - 10250/tcp
+        - 30000-32767/tcp  
+    - name: 建立 k8s.conf 讓 modprobe 加載
+      ansible.builtin.copy:
+        content: |
+          overlay
+          br_netfilter
+        dest: /etc/modules-load.d/k8s.conf
+    - name: 加載內核模組
+      ansible.builtin.modprobe:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - overlay
+        - br_netfilter
+    - name: 設置所需的 sysctl 參數，並使其立即生效
+      ansible.builtin.sysctl:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        sysctl_file: /etc/sysctl.d/k8s.conf
+        state: present
+        reload: yes
+      loop:
+        - { name: 'net.bridge.bridge-nf-call-iptables', value: '1' }
+        - { name: 'net.bridge.bridge-nf-call-ip6tables', value: '1' }
+        - { name: 'net.ipv4.ip_forward', value: '1' }
+
+
+
+
+
+    - name: add several users
+      become: true  #提升權限
+      # 複製yaml檔到k8s主機上
+      copy:
+        src: "{{item  | basename}}"
+        dest: /tmp/"{{item  | basename}}"
+            # 佈署
+      with_fileglob:
+        - tm*.yaml
+
+    - name: add several users 
+      kubernetes.core.k8s:
+        apply: yes
+        namespace: tm-namespace
+        src: /tmp/"{{item  | basename}}"
+      with_fileglob:
+        - tm*.yaml
+
+
+
+
+
+
+

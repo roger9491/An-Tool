@@ -1,0 +1,12 @@
+[master]
+# ansible_host= <ip address> ansible_ssh_pass = <password> 
+# ansible_host= 10.250.75.[start:end] ansible_ssh_pass = <password> 
+ansible_host= 10.250.75.134  ansible_ssh_pass = roger
+
+[worker]
+
+[node: vars]
+# 都使用 ssh 連結
+ansible_connection = ssh
+# 都使用 root 帳號 
+ansible_user= root
